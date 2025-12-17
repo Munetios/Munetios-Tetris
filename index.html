@@ -10,19 +10,20 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://api.munetios.com/beautiful-css/beautiful.css">
     <style>
         :root {
             --background-light: #f3f4f6;
             --text-light: #1f2937;
             --surface-light: #ffffff;
-            --primary-light: #4f46e5;
-            --primary-hover-light: #4338ca;
+            --primary-light: #4f46e591;
+            --primary-hover-light: #4338ca91;
 
             --background-dark: #111827;
             --text-dark: #f9fafb;
             --surface-dark: #1f2937;
-            --primary-dark: #6366f1;
-            --primary-hover-dark: #4f46e5;
+            --primary-dark: #6366f191;
+            --primary-hover-dark: #4f46e591;
         }
         
         body {
@@ -49,7 +50,13 @@
         .btn-primary {
             background-color: var(--primary-light);
             color: white;
-            border-radius: 20px;
+            border-radius: 320px;
+               
+    box-shadow: 0 8px 32px 0 rgba( 31, 38, 135, 0.37 );
+    backdrop-filter: blur( 1.75px )  saturate(180%) brightness(105%) contrast(100%);
+    -webkit-backdrop-filter: blur( 1.75px )  saturate(200%) brightness(125%) contrast(100%);
+    border-radius: 50px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
             transition: background-color 0.2s;
         }
         
@@ -182,30 +189,30 @@
     <div id="app" class="min-h-screen flex flex-col">
 
         <!-- Top Bar -->
-        <header class="surface shadow-md sticky top-0 z-40">
+        <header class=" sticky top-0 z-40">
             <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
-                    <div id="logo-and-title" class="flex items-center space-x-3">
+                    <div id="logo-and-title" class="liquid-glass p-2 flex items-center space-x-3">
                         <div id="logo-icon"><svg class="h-8 w-8 text-purple-600" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3H15V9H21V15H15V21H9V15H3V9H9V3Z"/></svg></div>
                         <span class="text-xl font-bold" data-lang-key="title">Munetios Tetris</span>
                     </div>
-                    <div class="hidden md:flex items-center space-x-8">
+                    <div class="hidden md:flex liquid-glass p-3 items-center space-x-8">
                         <a href="#" class="nav-link active" data-tab="game" data-lang-key="nav_game">Game</a>
                         <a href="#" class="nav-link" data-tab="editor" data-lang-key="nav_editor">Editor</a>
                         <a href="#" class="nav-link" data-tab="settings" data-lang-key="nav_settings">Settings</a>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <button id="dark-mode-toggle" class="p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                        <button id="dark-mode-toggle" class="p-2 liquid-glass rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
                             <svg id="sun-icon" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                             <svg id="moon-icon" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                         </button>
                         <div class="relative hidden md:block">
-                            <select id="language-selector" class="pl-3 pr-8 py-2 rounded-full appearance-none focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 surface">
+                            <select id="language-selector" class=" liquid-glass !bg-transparent pl-3 pr-8 py-2 rounded-full appearance-none focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 surface">
                                 <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="ru">Русский</option><option value="pt">Português</option><option value="zh">中文</option><option value="ja">日本語</option><option value="ko">한국어</option>
                             </select>
                         </div>
                         <div class="md:hidden">
-                            <button id="mobile-menu-button" class="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
+                            <button id="mobile-menu-button" class="liquid-glass p-2 rounded-3xl focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500">
                                 <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                             </button>
                         </div>
