@@ -258,6 +258,19 @@
                              <h2 class="text-2xl font-bold mb-4" data-lang-key="next">Next</h2>
                              <div class="flex justify-center items-center"><canvas id="next-piece-canvas" width="120" height="120"></canvas></div>
                         </div>
+                        <div class="liquid-glass p-5 rounded-2xl shadow-lg">
+                            <div class="flex justify-between items-center gap-4">
+                                <div>
+                                    <h2 class="text-lg font-bold">AI Player</h2>
+                                    <p id="ai-status" class="text-sm opacity-70" aria-live="polite">Off · You are playing</p>
+                                </div>
+                                <label class="toggle-switch-label" title="Let the local bot play">
+                                    <input type="checkbox" id="ai-toggle" aria-label="Toggle AI player">
+                                    <span class="toggle-switch-slider"></span>
+                                </label>
+                            </div>
+                            <p class="text-xs opacity-60 mt-3">Local JavaScript bot · no AI model or data sharing</p>
+                        </div>
                         <div id="wins-overs-container" class="surface p-6 rounded-lg shadow-lg">
                             <div class="flex justify-between items-center">
                                 <div><h3 class="font-bold" data-lang-key="wins">Wins</h3><p id="wins-count" class="text-2xl font-mono">0</p></div>
@@ -442,6 +455,8 @@
 
         // --- App State & Config ---
         let isSfxOn = false;
+        let isAiOn = false;
+        let aiMoveTimer = null;
         let dropInterval = 1000;
         let gameSettings = {};
         const defaultPieces = Object.freeze([ [[1, 1], [1, 1]], [[0, 2, 0], [2, 2, 2]], [[0, 3, 3], [3, 3, 0]], [[4, 4, 0], [0, 4, 4]], [[5, 5, 5, 5]], [[0, 0, 6], [6, 6, 6]], [[7, 0, 0], [7, 7, 7]] ]);
@@ -462,6 +477,7 @@
             showControls: { el: document.getElementById('on-screen-controls'), class: 'hidden', type: 'visibility', invert: true },
             sfx: { el: document.getElementById('sfx-toggle'), type: 'sfx' },
             speed: { el: document.getElementById('game-speed'), type: 'speed' },
+            ai: { el: document.getElementById('ai-toggle'), type: 'ai' },
         };
         function saveSettings() { localStorage.setItem('gamerytTetrisSettings', JSON.stringify(gameSettings)); }
         function applySetting(key, value) {
@@ -489,11 +505,16 @@
                     dropInterval = parseFloat(value) * 1000; config.el.value = value;
                     if (gameRunning) { clearInterval(gameLoop); gameLoop = setInterval(playerDrop, dropInterval); }
                     break;
+                case 'ai':
+                    isAiOn = value; config.el.checked = value;
+                    document.getElementById('ai-status').textContent = value ? 'On · Bot is playing' : 'Off · You are playing';
+                    if (value) queueAiMove(); else clearTimeout(aiMoveTimer);
+                    break;
             }
         }
         function loadSettings() {
             const saved = JSON.parse(localStorage.getItem('gamerytTetrisSettings')) || {};
-            const defaults = { darkMode: false, showScore: true, showWinsOvers: true, showControls: true, sfx: false, speed: '1' };
+            const defaults = { darkMode: false, showScore: true, showWinsOvers: true, showControls: true, sfx: false, speed: '1', ai: false };
             gameSettings = { ...defaults, ...saved };
             Object.keys(gameSettings).forEach(key => applySetting(key, gameSettings[key]));
         }
@@ -622,12 +643,16 @@
         function playerDrop() {
             if (!gameRunning) return;
             player.pos.y++;
-            if (collide(board, player)) { player.pos.y--; merge(board, player); placedCount++; updateScore(0); playSound('drop'); playerReset(); sweep(); }
+            if (collide(board, player)) { player.pos.y--; lockPiece(); }
         }
         function hardDrop() {
             if (!gameRunning) return;
             while(!collide(board, player)) player.pos.y++;
-            player.pos.y--; merge(board, player); placedCount++; updateScore(0); playSound('drop'); playerReset(); sweep();
+            player.pos.y--; lockPiece();
+        }
+        function lockPiece() {
+            merge(board, player); placedCount++; updateScore(0); playSound('drop'); sweep();
+            if (gameRunning) { playerReset(); queueAiMove(); }
         }
         function sweep() {
             let clearedLines = 0;
@@ -688,6 +713,52 @@
             document.getElementById('lines-count').textContent = `0 / ${WIN_CONDITION_LINES}`;
             nextPlayer = null; playerReset(); gameRunning = true;
             if(gameLoop) clearInterval(gameLoop); gameLoop = setInterval(playerDrop, dropInterval);
+            queueAiMove();
+        }
+
+        // --- Local heuristic bot (no model or network access) ---
+        function cloneBoard(source) { return source.map(row => row.slice()); }
+        function scoreBoard(candidate) {
+            let lines = 0, holes = 0, aggregateHeight = 0, bumpiness = 0;
+            const heights = Array(COLS).fill(0);
+            candidate.forEach(row => { if (row.every(Boolean)) lines++; });
+            for (let x = 0; x < COLS; x++) {
+                let blockSeen = false;
+                for (let y = 0; y < ROWS; y++) {
+                    if (candidate[y][x]) { if (!blockSeen) heights[x] = ROWS - y; blockSeen = true; }
+                    else if (blockSeen) holes++;
+                }
+                aggregateHeight += heights[x];
+                if (x) bumpiness += Math.abs(heights[x] - heights[x - 1]);
+            }
+            return lines * 0.76 - aggregateHeight * 0.51 - holes * 0.86 - bumpiness * 0.18;
+        }
+        function findBestMove() {
+            let matrix = player.matrix.map(row => row.slice());
+            let best = null;
+            for (let turns = 0; turns < 4; turns++) {
+                for (let x = -matrix[0].length; x < COLS; x++) {
+                    const test = { matrix, pos: { x, y: 0 } };
+                    if (collide(board, test)) continue;
+                    while (!collide(board, test)) test.pos.y++;
+                    test.pos.y--;
+                    const candidate = cloneBoard(board);
+                    merge(candidate, test);
+                    const rating = scoreBoard(candidate) + test.pos.y * 0.01;
+                    if (!best || rating > best.rating) best = { matrix: matrix.map(row => row.slice()), x, rating };
+                }
+                matrix = rotate(matrix);
+            }
+            return best;
+        }
+        function queueAiMove() {
+            clearTimeout(aiMoveTimer);
+            if (!isAiOn || !gameRunning || !player) return;
+            aiMoveTimer = setTimeout(() => {
+                if (!isAiOn || !gameRunning) return;
+                const move = findBestMove();
+                if (move) { player.matrix = move.matrix; player.pos.x = move.x; hardDrop(); }
+            }, 140);
         }
 
         // --- Editor Logic ---
@@ -806,20 +877,21 @@
         document.getElementById('try-again-btn').addEventListener('click', startGame);
         document.getElementById('sfx-toggle').addEventListener('change', (e) => { applySetting('sfx', e.target.checked); saveSettings(); });
         document.getElementById('game-speed').addEventListener('change', (e) => { applySetting('speed', e.target.value); saveSettings(); });
+        document.getElementById('ai-toggle').addEventListener('change', (e) => { applySetting('ai', e.target.checked); saveSettings(); });
         document.getElementById('toggle-score').addEventListener('change', (e) => { applySetting('showScore', e.target.checked); saveSettings(); });
         document.getElementById('toggle-wins-overs').addEventListener('change', (e) => { applySetting('showWinsOvers', e.target.checked); saveSettings(); });
         document.getElementById('toggle-controls').addEventListener('change', (e) => { applySetting('showControls', e.target.checked); saveSettings(); });
         document.addEventListener('keydown', e => {
-            if (!gameRunning) return;
+            if (!gameRunning || isAiOn) return;
             if (e.key === 'ArrowLeft') playerMove(-1); else if (e.key === 'ArrowRight') playerMove(1);
             else if (e.key === 'ArrowDown') playerDrop(); else if (e.key === 'ArrowUp') playerRotate();
             else if (e.key === ' ') { e.preventDefault(); hardDrop(); }
             draw();
         });
-        document.getElementById('move-left-btn').addEventListener('click', () => { if(gameRunning) { playerMove(-1); draw(); } });
-        document.getElementById('move-right-btn').addEventListener('click', () => { if(gameRunning) { playerMove(1); draw(); } });
-        document.getElementById('rotate-btn').addEventListener('click', () => { if(gameRunning) { playerRotate(); draw(); } });
-        document.getElementById('fast-down-btn').addEventListener('click', () => { if(gameRunning) { playerDrop(); draw(); } });
+        document.getElementById('move-left-btn').addEventListener('click', () => { if(gameRunning && !isAiOn) { playerMove(-1); draw(); } });
+        document.getElementById('move-right-btn').addEventListener('click', () => { if(gameRunning && !isAiOn) { playerMove(1); draw(); } });
+        document.getElementById('rotate-btn').addEventListener('click', () => { if(gameRunning && !isAiOn) { playerRotate(); draw(); } });
+        document.getElementById('fast-down-btn').addEventListener('click', () => { if(gameRunning && !isAiOn) { playerDrop(); draw(); } });
 
         // --- PWA & Offline Functionality ---
         function setupPWA() {
